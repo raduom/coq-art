@@ -50,3 +50,12 @@ Proof (fun _ _ Hp x y => Hp y x).
 Theorem resolution' :
   forall (A:Type) (P Q R S: A -> Prop), (forall a:A, Q a -> R a -> S a) -> (forall b:A, P b -> Q b) -> (forall c:A, P c -> R c -> S c).
 Proof (fun _ _ _ _ _ Hqrs Hpq c Hp Hr => Hqrs c (Hpq c Hp) Hr).
+
+Theorem resolution'' :
+  forall (A:Type) (P Q R S: A -> Prop), (forall a:A, Q a -> R a -> S a) -> (forall b:A, P b -> Q b) -> (forall c:A, P c -> R c -> S c).
+Proof.
+  intros A P Q R S Hqrs Hpq c Hp Hr.
+  apply (Hqrs c); try apply (Hpq c); assumption.
+Qed.
+
+Print resolution''.

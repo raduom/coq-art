@@ -43,8 +43,9 @@ forall m:month,
  m=May \/ m=June \/ m=July \/ m=August \/ 
  m=September \/ m=October \/ m=November \/ m=December.
 Proof.  
- intro m; pattern m; apply month_ind; auto 12.
-Qed.
+  intro m. pattern m. apply month_ind. auto 12.
+Admitted.
+
 
 
 

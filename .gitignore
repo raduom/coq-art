@@ -31,3 +31,6 @@ nra.cache
 
 # Book site
 booksite*
+
+# MacOS
+.DS_Store
