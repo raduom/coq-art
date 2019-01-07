@@ -455,40 +455,101 @@ Definition ex_6_47:
                  end
     in  rec n.
 
-
-Inductive term := Var: string -> term
-                | F: list term -> term.
-
-Check term_ind.
-
-Fixpoint ll (t: term): nat :=
-  match t with
-  | Var s => 0
-  | F ts =>  S (fold_left max (map ll ts) 0)
-  end.
-
-[1,2,3,..] [4,5,6,..] => [1, 4, 2, 5, 3, 6]
-
-combine (h1:tl1) l2 =
-  h1 + combine l2 tl1.
-
 (* Exercise 6.48 *)
 Inductive binary_word: nat -> Set :=
 | bw0 : binary_word 0
 | bwc : forall n, bool -> binary_word n -> binary_word (S n).
 
-Fixpoint binary_word_concat (n m: nat) (bw1 : binary_word n) (bw2 : binary_word m): binary_word (n + m) :=
+Fixpoint binary_word_concat {n m: nat} (bw1 : binary_word n) (bw2 : binary_word m): binary_word (n + m) :=
   match bw1 in binary_word p return binary_word (p + m) with
   | bw0 => bw2
-  | bwc size value next => bwc (size + m) value (binary_word_concat size m next bw2)
+  | bwc size value next => bwc (size + m) value (binary_word_concat next bw2)
+  end.
+
+Theorem bwc_S2 :
+  forall n m : nat, binary_word (n + S m) -> binary_word (S n + m).
+Proof.
+  intros n m H.
+  assert (H0 : binary_word (n + S m) = binary_word (S n + m)).
+  {
+    apply f_equal;
+    rewrite <- Nat.add_succ_comm;
+    reflexivity.
+  }
+
+  rewrite <- H0.
+  trivial.
+Qed.
+
+(* This alternative solution uses an accumulator *)
+
+Definition bwc_S3 :
+  forall n m, binary_word (n + S m) -> binary_word (S n + m) :=
+  fun n m H =>
+    let H0 : binary_word (n + S m) = binary_word (S n + m) :=
+        f_equal binary_word
+                (eq_ind (S n + m) (fun n0 => n0 = S n + m) eq_refl
+                        (n + S m) (Nat.add_succ_comm n m)) in
+    eq_rec (binary_word (n + S m)) (fun P : Set => P) H (binary_word (S n + m)) H0.
+                        
+Fixpoint binary_word_concat' {n m : nat} (bw1 : binary_word n) (bw2 : binary_word m) : binary_word (n + m) :=
+  match bw1 in binary_word p return binary_word (p + m) with
+  | bw0 => bw2
+  | bwc sz v nx => bwc_S2 sz m (binary_word_concat' nx (bwc m v bw2))
+  end.
+
+(* 6.49 *)
+
+Lemma discriminate_S_O {n : nat} : S n = 0 -> False.
+Proof.
+  intros H;
+    discriminate.
+Qed.
+
+Lemma discriminate_O_S {n : nat} : 0 = S n -> False.
+Proof.
+  intros H;
+    discriminate.
+Qed.
+
+Fixpoint binary_word_or (n:nat)(w1:binary_word n) {struct w1}:
+    binary_word n -> binary_word n :=
+ match w1 in binary_word p return binary_word p -> binary_word p with
+   bw0 =>
+     (fun w2:binary_word 0 =>
+        match w2 in binary_word p' return p'=0 -> binary_word p' with
+          bw0 =>
+            (fun h => bw0)
+        | bwc q b w2' =>
+            (fun h => False_rec (binary_word (S q)) (discriminate_S_O h))
+        end (refl_equal 0))
+  | bwc q b1 w1' =>
+      (fun w2:binary_word (S q) =>
+        match w2 in binary_word p' return S q=p' -> binary_word p' with
+          bw0 =>
+            (fun h => False_rec (binary_word 0) (discriminate_S_O h))
+        | bwc q' b2 w2' =>
+            (fun h =>
+               bwc q'
+                  (orb b1 b2)
+                  (binary_word_or q'
+(* this use of eq_rec transforms w1' into an element of (binary_word (S q'))
+    instead of (binary_word (S q)), thanks to the equality h. *)
+                    (eq_rec (S q)
+                      (fun v:nat => binary_word (pred v))
+                      w1'
+                      (S q')
+                      (h:S q=S q'))
+                      w2'))
+         end (refl_equal (S q)))
   end.
 
 Fixpoint binary_word_or (n: nat) (bw1 bw2: binary_word n): binary_word n :=
   match bw1, bw2 in binary_word p return binary_word p with
   | bw0, bw0 => bw0
-  | bwc (S size1) value1 next1,
-    bwc _ value2 next2 => bwc size1 (or value1 value2)
-                             (binary_word_or size1 size1 next1 next2)
+  | bwc (S sz) v1 nx1,
+    bwc _  v2 nx2 => bwc (S sz) (or v1 v2)
+                        (binary_word_or sz nx1 nx2)
   end.
 
 (* Exercise 6.51 *)
