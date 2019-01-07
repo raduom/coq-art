@@ -500,57 +500,103 @@ Fixpoint binary_word_concat' {n m : nat} (bw1 : binary_word n) (bw2 : binary_wor
 
 (* 6.49 *)
 
-Lemma discriminate_S_O {n : nat} : S n = 0 -> False.
-Proof.
-  intros H;
-    discriminate.
-Qed.
+(* This is based on the convoy pattern. See matching.v for the whole story *)
 
-Lemma discriminate_O_S {n : nat} : 0 = S n -> False.
-Proof.
-  intros H;
-    discriminate.
-Qed.
+(* First version, using tactis to solve holes *)
+Definition binary_word_or:
+  forall n, binary_word n -> binary_word n -> binary_word n.
+  refine (
+      fix f {n: nat} w1: binary_word n -> binary_word n :=
+      match w1 in binary_word j return binary_word j -> binary_word j with
+      | bw0        => fun w2 => bw0
+      | bwc p x xt => fun w2 =>
+        match w2 in binary_word j return S p = j -> binary_word (S p) with
+        | bw0        => fun Heq => _
+        | bwc q y yt => fun Heq =>
+                         bwc p (x || y) (f xt _)
+        end eq_refl
+      end
+    ).
+  inversion Heq.
+  inversion Heq; exact yt.
+Defined.
 
-Fixpoint binary_word_or (n:nat)(w1:binary_word n) {struct w1}:
-    binary_word n -> binary_word n :=
- match w1 in binary_word p return binary_word p -> binary_word p with
-   bw0 =>
-     (fun w2:binary_word 0 =>
-        match w2 in binary_word p' return p'=0 -> binary_word p' with
-          bw0 =>
-            (fun h => bw0)
-        | bwc q b w2' =>
-            (fun h => False_rec (binary_word (S q)) (discriminate_S_O h))
-        end (refl_equal 0))
-  | bwc q b1 w1' =>
-      (fun w2:binary_word (S q) =>
-        match w2 in binary_word p' return S q=p' -> binary_word p' with
-          bw0 =>
-            (fun h => False_rec (binary_word 0) (discriminate_S_O h))
-        | bwc q' b2 w2' =>
-            (fun h =>
-               bwc q'
-                  (orb b1 b2)
-                  (binary_word_or q'
-(* this use of eq_rec transforms w1' into an element of (binary_word (S q'))
-    instead of (binary_word (S q)), thanks to the equality h. *)
-                    (eq_rec (S q)
-                      (fun v:nat => binary_word (pred v))
-                      w1'
-                      (S q')
-                      (h:S q=S q'))
-                      w2'))
-         end (refl_equal (S q)))
-  end.
+Reset binary_word_or.
 
-Fixpoint binary_word_or (n: nat) (bw1 bw2: binary_word n): binary_word n :=
-  match bw1, bw2 in binary_word p return binary_word p with
-  | bw0, bw0 => bw0
-  | bwc (S sz) v1 nx1,
-    bwc _  v2 nx2 => bwc (S sz) (or v1 v2)
-                        (binary_word_or sz nx1 nx2)
-  end.
+(* Now I replace the tactics with functions *)
+Definition disc_nat {T: Set} {p: nat} (H: S p = 0): T.
+  refine (
+      match H in _ = j return
+            match j with
+            | O => T
+            | S i => unit
+            end
+      with
+      | eq_refl => tt
+      end
+    ).
+Defined.
+
+Definition rewrite_nat {T: nat -> Set} {p q: nat} (H: S p = S q): T q -> T p.
+  refine (
+      match H in _ = j return
+            match j with
+            | O   => unit
+            | S i => T i -> T p
+            end
+      with
+      | eq_refl => fun t => t
+      end
+    ).
+Defined.
+
+(* And now I redefine the function without the proof terms *)
+Definition binary_word_or:
+  forall n, binary_word n -> binary_word n -> binary_word n.
+  refine (
+      fix f {n: nat} w1: binary_word n -> binary_word n :=
+      match w1 in binary_word j return binary_word j -> binary_word j with
+      | bw0        => fun w2 => bw0
+      | bwc p x xt => fun w2 =>
+        match w2 in binary_word j return S p = j -> binary_word (S p) with
+        | bw0        => disc_nat
+        | bwc q y yt => fun Heq =>
+                         bwc p (x || y) (f xt (rewrite_nat Heq yt))
+        end eq_refl
+      end
+    ).
+Defined.
+
+Reset binary_word_or.
+
+Definition uncons {n: nat} (w : binary_word (S n)): bool * binary_word n.
+  refine (
+      match w in binary_word j return
+            match j with
+            | O => unit
+            | S i => bool * binary_word i
+            end
+      with
+      | bw0 => tt
+      | bwc q x xt => (x, xt)
+      end
+    ).
+Defined.
+
+Definition binary_word_or:
+  forall n, binary_word n -> binary_word n -> binary_word n.
+  refine (
+      fix f {n}: binary_word n -> binary_word n -> binary_word n :=
+        match n as j return binary_word j -> binary_word j -> binary_word j with
+        | O   => fun w1 w2 => bw0
+        | S p => fun w1 w2 =>
+                  match uncons w1, uncons w2 with
+                  | (v1, wt1), (v2, wt2) =>
+                    bwc p (v1 || v2) (f wt1 wt2)
+                  end
+        end
+    ).
+Defined.
 
 (* Exercise 6.51 *)
 Theorem ex_6_51_1: forall (x y: Empty_set), x=y.
